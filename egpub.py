@@ -33,24 +33,6 @@ INFLUX_DB = 'boulder'
 INFLUX_USER = 'egaugepoll'
 INFLUX_PASS = 'GUi8Y5OSUF'
 
-################################################################################
-## MQTT 
-################################################################################
-
-MQTT_HOST_NAME = os.getenv("MQTT_HOST_NAME", "localhost")
-MQTT_HOST_PORT = int(os.getenv("MQTT_HOST_PORT", "1883"))
-MQTT_HOST_KEEP_ALIVE = 60
-
-# MQTT Publishing Topics
-MQTT_TOPIC_EGAUGE = "meters/egauge/power/"
-
-def mqtt_host_on_connect(client, userdata, flags, rc):
-        logger.info("[MQTT_HOST][Connection] Result ==> %s" % rc)
-
-# publish callback function
-def mqtt_host_on_publish(client, userdata, result):
-    #logger.info("[MQTT_HOST][Publish]")
-    pass
 
 ################################################################################
 ## MAIN 
@@ -71,7 +53,6 @@ if __name__ == "__main__":
     logger.info("--------------------------------------------------")
 
 #    logger.info("Log config --> %s", LOG_CONFIG)
-#    logger.info("MQTT endpoint --> %s:%s", MQTT_HOST_NAME, MQTT_HOST_PORT)
     logger.info("INFLUX endpoint --> %s:%s", INFLUX_HOST, INFLUX_PORT)
     logger.info("EGAUGE endpoint --> %s", EGAUGE_HOST)
 
@@ -83,15 +64,6 @@ if __name__ == "__main__":
 
     #myEgauge = eGauge(EGAUGE_HOST, EGAUGE_USER, EGAUGE_PASS)
     myEgauge = eGauge(EGAUGE_HOST)
-
-    # MQTT_HOST: subscribe to all topics
-#    myMQTT = mqtt.Client()
-#    myMQTT.username_pw_set("rabbitmq", password='rabbitmq')
-#    myMQTT.on_connect = mqtt_host_on_connect
-#    myMQTT.on_publish = mqtt_host_on_publish
-
-#    myMQTT.connect(MQTT_HOST_NAME, MQTT_HOST_PORT, MQTT_HOST_KEEP_ALIVE)
-#    myMQTT.loop_start()
 
     logger.info("Running...")
     while True:
@@ -113,9 +85,9 @@ if __name__ == "__main__":
         #logger.debug(instantEGaugeData)
         #logger.info("It's Data!   loadPower: %s    gridPower: %s     solarPower: %s", loadPower, gridPower, solarPower)
 
-    #    data['GridEnergyConsumptionInWattSeconds']  # grid-powered daily energy in Watt-seconds
-    #    data['TotalEnergyConsumptionInWattSeconds']  # Total loads daily energy in Watt-seconds
-    #    data['SolarEnergyGenerationInWattSeconds'] # daily energy generated in Watt-seconds
+        gridEnergy = data['GridEnergyConsumptionInWattSeconds']  # grid-powered daily energy in Watt-seconds
+        loadEnergy = data['TotalEnergyConsumptionInWattSeconds']  # Total loads daily energy in Watt-seconds
+        solarEnergy = data['SolarEnergyGenerationInWattSeconds'] # daily energy generated in Watt-seconds
 
 
         # Use Influx line protocol for now, it has the format:
@@ -128,15 +100,13 @@ if __name__ == "__main__":
             loadPower)
         logger.debug(influx_line)
 
+        influx_line = "power,equipment_id=egauge30808 energy_solar={},energy_grid={},energy_load={}".format(
+            solarEnergy,
+            gridEnergy,
+            loadEnergy)
+
 #        dbClient.write(influx_line, protocol='line')
         result = dbClient.write([influx_line],{'db':INFLUX_DB},protocol='line')
-
-#        try:
-            # publish values to MQTT broker
-#            myMQTT.publish(MQTT_TOPIC_EGAUGE, influx_line)
-
-#        except Exception as e:
-#            logger.error("Error publishing to MQTT: %s", e)
 
         # Sleep a total 5 seconds between iterations
         time.sleep(6)
