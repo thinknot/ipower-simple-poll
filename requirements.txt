@@ -1,0 +1,4 @@
+httplib2>=0.14.0
+lxml>=4.4.1
+influxdb>=5.2.3
+requests_cache
