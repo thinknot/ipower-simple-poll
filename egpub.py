@@ -1,8 +1,5 @@
-#import paho.mqtt.client as mqtt
 from influxdb import InfluxDBClient
-import random
 import time
-import requests
 import os
 import logging
 
@@ -85,9 +82,9 @@ if __name__ == "__main__":
         #logger.debug(instantEGaugeData)
         #logger.info("It's Data!   loadPower: %s    gridPower: %s     solarPower: %s", loadPower, gridPower, solarPower)
 
-        gridEnergy = data['GridEnergyConsumptionInWattSeconds']  # grid-powered daily energy in Watt-seconds
-        loadEnergy = data['TotalEnergyConsumptionInWattSeconds']  # Total loads daily energy in Watt-seconds
-        solarEnergy = data['SolarEnergyGenerationInWattSeconds'] # daily energy generated in Watt-seconds
+        gridEnergy = instantEGaugeData['GridEnergyConsumptionInWattSeconds']  # grid-powered daily energy in Watt-seconds
+        loadEnergy = instantEGaugeData['TotalEnergyConsumptionInWattSeconds']  # Total loads daily energy in Watt-seconds
+        solarEnergy = instantEGaugeData['SolarEnergyGenerationInWattSeconds'] # daily energy generated in Watt-seconds
 
 
         # Use Influx line protocol for now, it has the format:
