@@ -1,16 +1,10 @@
-#from __future__ import unicode_literals
-#from __future__ import print_function
-#from __future__ import division
-#from __future__ import absolute_import
-#from future import standard_library
-#standard_library.install_aliases()
 from builtins import *
 from builtins import object
 import logging
 import httplib2
 from datetime import datetime
 import calendar
-from lxml import etree as ET
+from lxml import etree
 
 
 class eGauge(object):
@@ -27,7 +21,7 @@ class eGauge(object):
     self.password = None
 
   def parse_datetime(str) :
-    if str == None :
+    if str is None :
       return None
     try :
       return datetime.strptime(str, "%Y-%m-%d %H:%M:%S")
@@ -50,7 +44,7 @@ class eGauge(object):
 
     params
     fromTime: from unix timestamp (newest)
-    toTime: to unix tsimestmp (oldest) [optional]
+    toTime: to unix timestamp (oldest) [optional]
     """
     # The data is in decending order
 
@@ -75,13 +69,14 @@ class eGauge(object):
 
     response = self.runEgaugeQuery(gw_url + params)
     # create an ElementTree with the HTML response
-    root = ET.fromstring(response)
+    root = etree.fromstring(response)
     useDataIndex = -1
     indexToName = {}
     nameToValue = {}
     returnVal = {"gen": -1, "use": -1, "Grid": -1}
 
     try:
+        foundUseData = False
         for child in root[0]:
           if child.tag == "cname":
             useDataIndex += 1
@@ -130,7 +125,7 @@ class eGauge(object):
     return returnVal
 
 
-  def getInstantData(self):
+  def get_instant_data(self):
     """
     curl -v --digest  -uuser
     'http://egauge30808.egaug.es/cgi-bin/egauge?v1&inst'
@@ -149,7 +144,7 @@ class eGauge(object):
     if content == None:
         return None
 
-    root = ET.XML(content)
+    root = etree.XML(content)
 
 
     data = {}

@@ -74,7 +74,7 @@ if __name__ == "__main__":
             then = now
 
         # get instant data
-        instantEGaugeData = myEgauge.getInstantData()
+        instantEGaugeData = myEgauge.get_instant_data()
         if instantEGaugeData == None:
             continue
 
