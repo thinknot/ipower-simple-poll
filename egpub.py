@@ -9,15 +9,15 @@ from egauge import eGauge
 ## EGAUGE 
 ################################################################################
 
-#EGAUGE_HOST = os.getenv("EGAUGE_HOST", "fail")
+# EGAUGE_HOST = os.getenv("EGAUGE_HOST", "fail")
 EGAUGE_HOST = 'egauge30808.egaug.es'
-EGAUGE_USER     = None  # Add username if necessary
-EGAUGE_PASS     = None  # Add password if necessary
+EGAUGE_USER = None  # Add username if necessary
+EGAUGE_PASS = None  # Add password if necessary
 
-#last 5 minutes (1min * 60s)
-TIME_AGO = 5*60
-# get Unix timestmaps for now, and now-time_ago
-now  = int(time.time())
+# last 5 minutes (1min * 60s)
+TIME_AGO = 5 * 60
+# get Unix timestamps for now, and now-time_ago
+now = int(time.time())
 then = int(time.time()) - TIME_AGO
 
 ################################################################################
@@ -30,13 +30,12 @@ INFLUX_DB = 'boulder'
 INFLUX_USER = 'egaugepoll'
 INFLUX_PASS = 'GUi8Y5OSUF'
 
-
 ################################################################################
 ## MAIN 
 ################################################################################
 
 if __name__ == "__main__":
-#    signal.signal(signal.SIGTERM, signal_handler)
+    #    signal.signal(signal.SIGTERM, signal_handler)
 
     logging.basicConfig(format="[%(asctime)-15s] %(message)s", level=logging.DEBUG)
     logger = logging.getLogger(__name__)
@@ -49,7 +48,7 @@ if __name__ == "__main__":
     logger.info("Environment")
     logger.info("--------------------------------------------------")
 
-#    logger.info("Log config --> %s", LOG_CONFIG)
+    #    logger.info("Log config --> %s", LOG_CONFIG)
     logger.info("INFLUX endpoint --> %s:%s", INFLUX_HOST, INFLUX_PORT)
     logger.info("EGAUGE endpoint --> %s", EGAUGE_HOST)
 
@@ -59,7 +58,7 @@ if __name__ == "__main__":
 
     logger.info("Initializing... %s", now)
 
-    #myEgauge = eGauge(EGAUGE_HOST, EGAUGE_USER, EGAUGE_PASS)
+    # myEgauge = eGauge(EGAUGE_HOST, EGAUGE_USER, EGAUGE_PASS)
     myEgauge = eGauge(EGAUGE_HOST)
 
     logger.info("Running...")
@@ -67,7 +66,7 @@ if __name__ == "__main__":
         now = int(time.time())
 
         if now - then >= TIME_AGO:
-    #        myEgauge.getDataByRange(then, now)
+            #myEgauge.getDataByRange(then, now)
             then = now
 
         # get instant data
@@ -77,15 +76,14 @@ if __name__ == "__main__":
 
         gridPower = instantEGaugeData['GridPowerConsumptionInWatts']  # current grid power consumption in Watts
         loadPower = instantEGaugeData['TotalPowerConsumptionInWatts']  # Total loads current consumption in Watts
-        solarPower = instantEGaugeData['SolarPowerGenerationInWatts'] # current generation in Watts
+        solarPower = instantEGaugeData['SolarPowerGenerationInWatts']  # current generation in Watts
 
-        #logger.debug(instantEGaugeData)
-        #logger.info("It's Data!   loadPower: %s    gridPower: %s     solarPower: %s", loadPower, gridPower, solarPower)
+        # logger.debug(instantEGaugeData)
+        # logger.info("It's Data!   loadPower: %s   gridPower: %s   solarPower: %s", loadPower, gridPower, solarPower)
 
-        gridEnergy = instantEGaugeData['GridEnergyConsumptionInWattSeconds']  # grid-powered daily energy in Watt-seconds
-        loadEnergy = instantEGaugeData['TotalEnergyConsumptionInWattSeconds']  # Total loads daily energy in Watt-seconds
+        gridEnergy = instantEGaugeData['GridEnergyConsumptionInWattSeconds'] # grid daily energy in Watt-seconds
+        loadEnergy = instantEGaugeData['TotalEnergyConsumptionInWattSeconds'] # loads daily energy in Watt-seconds
         solarEnergy = instantEGaugeData['SolarEnergyGenerationInWattSeconds'] # daily energy generated in Watt-seconds
-
 
         # Use Influx line protocol for now, it has the format:
         #    measurement,tag_set field_set timestamp
@@ -102,8 +100,7 @@ if __name__ == "__main__":
             gridEnergy,
             loadEnergy)
 
-#        dbClient.write(influx_line, protocol='line')
-        result = dbClient.write([influx_line],{'db':INFLUX_DB},protocol='line')
+        result = dbClient.write([influx_line], {'db': INFLUX_DB}, protocol='line')
 
         # Sleep a total 5 seconds between iterations
         time.sleep(6)
