@@ -7,7 +7,7 @@ from lxml import etree
 
 
 def test_get_instant_check_xml_root():
-    response = requests.get('http://10.0.0.47/cgi-bin/egauge?inst&tot')
+    response = requests.get('http://egauge45930.egaug.es/cgi-bin/egauge?inst&tot')
     response_body_as_xml = etree.fromstring(response.content)
     xml_tree = etree.ElementTree(response_body_as_xml)
     root = xml_tree.getroot()
@@ -16,7 +16,7 @@ def test_get_instant_check_xml_root():
 
 
 def test_get_instant_check_xml_timestamp():
-    response = requests.get('http://10.0.0.47/cgi-bin/egauge?inst&tot')
+    response = requests.get('http://egauge45930.egaug.es/cgi-bin/egauge?inst&tot')
     response_body_as_xml = etree.fromstring(response.content)
     xml_tree = etree.ElementTree(response_body_as_xml)
     timestamp_element = xml_tree.find('./ts')
@@ -25,7 +25,7 @@ def test_get_instant_check_xml_timestamp():
 
 
 def test_get_instant_check_xml_resultrows_exist():
-    response = requests.get('http://10.0.0.47/cgi-bin/egauge?inst&tot')
+    response = requests.get('http://egauge45930.egaug.es/cgi-bin/egauge?inst&tot')
     response_body_as_xml = etree.fromstring(response.content)
     xml_tree = etree.ElementTree(response_body_as_xml)
     rrows = xml_tree.findall('./r')
@@ -34,8 +34,9 @@ def test_get_instant_check_xml_resultrows_exist():
 # Attribute 'rt' may be set to the string 'total' to indicate that the register is
 # a total or virtual register whose value has been calculated from the physical (did) registers.
 
+
 def test_get_instant_check_xml_resultrows_registers():
-    response = requests.get('http://10.0.0.47/cgi-bin/egauge?inst&tot')
+    response = requests.get('http://egauge45930.egaug.es/cgi-bin/egauge?inst&tot')
     response_body_as_xml = etree.fromstring(response.content)
     xml_tree = etree.ElementTree(response_body_as_xml)
     rrows = xml_tree.xpath('./r[not(@rt)]')
@@ -43,17 +44,15 @@ def test_get_instant_check_xml_resultrows_registers():
 
 
 def test_get_instant_check_xml_resultrows_totals():
-    response = requests.get('http://10.0.0.47/cgi-bin/egauge?inst&tot')
+    response = requests.get('http://egauge45930.egaug.es/cgi-bin/egauge?inst&tot')
     response_body_as_xml = etree.fromstring(response.content)
     xml_tree = etree.ElementTree(response_body_as_xml)
     rrows = xml_tree.findall('./r[@rt="total"]')
     assert len(rrows) > 0
 
-#Two sub-elements may appear for each r element: v and i.
-
 
 def test_get_instant_check_resultrow_values():
-    response = requests.get('http://10.0.0.47/cgi-bin/egauge?inst&tot')
+    response = requests.get('http://egauge45930.egaug.es/cgi-bin/egauge?inst&tot')
     response_body_as_xml = etree.fromstring(response.content)
     xml_tree = etree.ElementTree(response_body_as_xml)
     rrows = xml_tree.findall('./r')
@@ -65,5 +64,8 @@ def test_get_instant_check_resultrow_values():
             assert (value.tag == 'v' or value.tag == 'i')
             assert(value.text)
 
-# v - A cumulative register value expressed in a type-specific unit.  Subtracting twoconsecutive readings and dividing by the number of seconds elapsed betweenthe samples gives the average rate of change for the register
-# i - The  average  rate  of  change  of  the  register  value  as  measured  for  the  mostrecent one-second interval
+# Two sub-elements may appear for each r element: v and i.
+# v - A cumulative register value expressed in a type-specific unit.
+#     Subtracting two consecutive readings and dividing by the number of seconds elapsed,
+#     gives the average rate of change for the register
+# i - The average rate of change of the register value as measured for the most recent one-second interval
