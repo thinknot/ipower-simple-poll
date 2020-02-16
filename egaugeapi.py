@@ -3,12 +3,12 @@ from builtins import object
 import logging
 import httplib2
 from datetime import datetime
-import calendar
 from lxml import etree
 
 from egaugedata import EgaugeData
 
-class eGauge(object):
+
+class EgaugeApi(object):
     def __init__(self, host, username, password):
         self.logger = logging.getLogger("__name__")
         self.host = host
@@ -35,8 +35,8 @@ class eGauge(object):
 
     #
     # basic fetch implementation of http://egauge.net/docs/egauge-xml-api.pdf
-    #
-    def get_historical_data(self, fromTime, toTime=None):
+    # returns
+    def get_history_minutes(self, fromTime, toTime=None):
         """
     params
     fromTime: from unix timestamp (newest)
@@ -45,34 +45,38 @@ class eGauge(object):
         # set up and make request
         gw_url = "http://{0}/cgi-bin/egauge-show".format(self.host)
 
-        #'/cgi-bin/egauge-show?a&T=1412319600'
-        #'/cgi-bin/egauge-show?a&m&s=4&f=1412346900&t=1412345700'
-        # notes on HTTP parameters:
+        ## Notes on HTTP parameters:
+        #'/cgi-bin/egauge-show?m&n=2&s=9&C'
+        #'/cgi-bin/egauge-show?a&m&T=1581750180,1581750120,1581750060'
+        #'/cgi-bin/egauge-show?a&m&T=1581750000,1581797259&C'
+        #'/cgi-bin/egauge-show?a&m&f=1581797259&t=1581750000'
         # a - total and virtual registers
-        # T - comma separated list of timestamps, from youngest to oldest
+        # T - comma separated list of timestamp rows (from youngest to oldest?)
         # f - The timestamp of the first (newest) row to be returned
         # t - The timestamp of the last (oldest) row to be returned
-        # m -
-        # s -
+        # m - use minutes as units of each row. (other options are h,S,d)
+        # s - skip a certain number of rows in the result set
+        # C - show deltas between each timestamp row, rather than the actual register value
         if fromTime and toTime:
-            params = "?a&T={},{}".format(fromTime, toTime)
-        #      params = "?f={0}&t={1}&a&m&s=4".format(fromTime, toTime)
+            maxrows = (toTime - fromTime) / 60
+            params = "?a&m&t={}&f={}&n={}".format(fromTime-60, toTime, int(maxrows)+1)
+        #    params = "?a&T={0}&T={1}".format(fromTime, toTime)
         elif fromTime:
-            params = "?a&T={0}".format(fromTime)
+            params = "?a&t={0}".format(fromTime)
         else:
             self.logger.error("fromTime is mandatory.")
             return None, None
 
-        response = self.runEgaugeQuery(gw_url + params)
+        response = self.run_egauge_httpquery(gw_url + params)
 
         resultData = EgaugeData(response)
         self.logger.debug(resultData)
-        resultValues = {"gen": -1, "use": -1, "Grid": -1}
 
-
-        self.logger.debug("[get_historical_data] - Result: %s", resultValues)
+        resultValues = resultData.convert()
+        self.logger.debug(resultValues)
 
         return resultValues
+
 
     def get_instant_data(self):
         """
@@ -86,7 +90,7 @@ class eGauge(object):
 
         # self.logger.debug("Fetching : %s", gw_url)
 
-        content = self.runEgaugeQuery(gw_url)
+        content = self.run_egauge_httpquery(gw_url)
 
         # TODO handle http timeout round here
         if content == None:
@@ -142,13 +146,15 @@ class eGauge(object):
         return data
 
 
-    def runEgaugeQuery(self, url):
+    def run_egauge_httpquery(self, url):
         # 'NULL' maps to 'None' in Python
         # It throws an exception in httplib API's, so set it to defaults
         if self.username == None:
             self.username = "owner"
         if self.password == None:
             self.password = "default"
+
+        self.logger.debug(url)
 
         try:
             req = httplib2.Http(timeout=15)
