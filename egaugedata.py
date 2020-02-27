@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from lxml import etree
 
@@ -5,6 +6,8 @@ from lxml import etree
 class EgaugeData(object):
 
     def __init__(self, xml_string):
+        self.logger = logging.getLogger("__name__")
+
         self.config_serial_number = None
         self.num_registers = 0
         self.regname = []
@@ -23,10 +26,9 @@ class EgaugeData(object):
             if data.tag != 'data':
                 raise Exception('Expected <data> elements within <group>')
 
-            # timestamp - specifies the UNIX timestamp (in hex) for the first row.
-            # timedelta - specifies the number of seconds to be subtracted to get the next row’s timestamp.
+            # time_stamp - specifies the UNIX timestamp (in hex) for the first row.
+            # time_delta - specifies the number of seconds to be subtracted to get the next row’s timestamp.
             # epoch - specifies the UNIX timestamp (in hex) of the time at which recording started.
-            # delta - equal to 'true' if the data rows are delta-encoded
             if 'columns' in data.attrib:
                 self.num_registers = int(data.attrib['columns'])
             if 'time_stamp' in data.attrib:
@@ -48,7 +50,7 @@ class EgaugeData(object):
                         row.append(int(c.text))
                     self.ts.append(ts)
                     self.row.append(row)
-                    ts -= delta
+                    ts -= delta  # increment the timestamp
                 elif el.tag == 'cname':
                     t = "P"
                     if 't' in el.attrib:
@@ -85,18 +87,21 @@ class EgaugeData(object):
         prev_ts = None
         prev_row = None
 
+        # this calculates the Wh used in between timestamps.
+        # the 'value' recorded is for the interval starting at 'timestamp'
         readings = []
         for i in range(len(self.ts)):
             ts = self.ts[i]
             row = self.row[i]
             if prev_ts and prev_row:
-#                ts_str = datetime.fromtimestamp(ts).isoformat()
+                ts_str = datetime.fromtimestamp(ts).isoformat()
+                self.logger.debug('timestamp %s', ts_str)
                 for regnum in range(len(self.row[i])):
                     reading = {}
                     if self.regtype[regnum] != 'P':
                         continue
-                    val = (row[regnum] - prev_row[regnum]) # the magic, the change
-                    reading['timestamp'] = ts # eGauge timestamps are UTC...
+                    val = (row[regnum] - prev_row[regnum])  # the magic, the change
+                    reading['timestamp'] = ts  # eGauge timestamps are UTC...
                     reading['value'] = abs(val / 3600.0)  # convert to Wh
                     reading['meterId'] = regnum
                     readings.append(reading)

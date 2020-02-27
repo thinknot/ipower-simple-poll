@@ -2,12 +2,14 @@ from builtins import *
 from builtins import object
 import logging
 import httplib2
-from datetime import datetime
+import datetime as dt
+import time
 from lxml import etree
 
 from egaugedata import EgaugeData
 
 
+# basic fetch implementation of http://egauge.net/docs/egauge-xml-api.pdf
 class EgaugeApi(object):
     def __init__(self, host, username, password):
         self.logger = logging.getLogger("__name__")
@@ -21,22 +23,9 @@ class EgaugeApi(object):
         self.username = None
         self.password = None
 
-
-    def parse_datetime(str):
-        if str is None:
-            return None
-        try:
-            return datetime.strptime(str, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            try:
-                return datetime.strptime(str, "%Y-%m-%dT%H:%M:%S")
-            except ValueError:
-                return datetime.strptime(str, "%Y-%m-%d")
-
     #
-    # basic fetch implementation of http://egauge.net/docs/egauge-xml-api.pdf
     # returns
-    def get_history_minutes(self, fromTime, toTime=None):
+    def get_history_minutes(self, time_begin, time_end=None):
         """
     params
     fromTime: from unix timestamp (newest)
@@ -45,26 +34,29 @@ class EgaugeApi(object):
         # set up and make request
         gw_url = "http://{0}/cgi-bin/egauge-show".format(self.host)
 
+        dt_begin = dt.datetime.fromtimestamp(time_begin, dt.timezone.utc)
+        dt_minute = dt_begin - dt.timedelta(seconds=dt_begin.second,
+                                            microseconds=dt_begin.microsecond)
+        time_begin = time.mktime(dt_minute.timetuple())
+
+        if time_end is None:
+            time_end = dt.datetime.utcnow().timestamp()
+
         ## Notes on HTTP parameters:
         #'/cgi-bin/egauge-show?m&n=2&s=9&C'
         #'/cgi-bin/egauge-show?a&m&T=1581750180,1581750120,1581750060'
         #'/cgi-bin/egauge-show?a&m&T=1581750000,1581797259&C'
         #'/cgi-bin/egauge-show?a&m&f=1581797259&t=1581750000'
         # a - total and virtual registers
-        # T - comma separated list of timestamp rows (from youngest to oldest?)
         # f - The timestamp of the first (newest) row to be returned
         # t - The timestamp of the last (oldest) row to be returned
         # m - use minutes as units of each row. (other options are h,S,d)
         # s - skip a certain number of rows in the result set
         # C - show deltas between each timestamp row, rather than the actual register value
-        if fromTime and toTime:
-            maxrows = (toTime - fromTime) / 60
-            params = "?a&m&t={}&f={}&n={}".format(fromTime-60, toTime, int(maxrows)+1)
-        #    params = "?a&T={0}&T={1}".format(fromTime, toTime)
-        elif fromTime:
-            params = "?a&t={0}".format(fromTime)
+        if time_begin and time_end:
+            params = "?a&m&t={}&f={}".format(int(time_begin), int(time_end))
         else:
-            self.logger.error("fromTime is mandatory.")
+            self.logger.error("time_begin is mandatory.")
             return None, None
 
         response = self.run_egauge_httpquery(gw_url + params)
@@ -76,7 +68,6 @@ class EgaugeApi(object):
         self.logger.debug(resultValues)
 
         return resultValues
-
 
     def get_instant_data(self):
         """

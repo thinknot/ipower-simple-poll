@@ -15,11 +15,13 @@ EGAUGE_HOST = EGAUGE_ID + '.egaug.es'
 EGAUGE_USER = None  # Add username if necessary
 EGAUGE_PASS = None  # Add password if necessary
 
-# energy collection interval - last 5 minutes (1min * 60s)
-TIME_AGO = 3 * 60
-# create a global vars: get Unix timestamps for now, and for 5 minutes ago
+# short collection interval for power / counters - 6 seconds
+EGAUGE_POLL_INSTANT = 6
+# longer collection interval for energy intervals - 3 minutes * 60s
+EGAUGE_POLL_HISTORY = 3 * 60
+# create global vars for two Unix timestamps
 now = int(time.time())
-then = int(time.time()) - TIME_AGO
+then = now - EGAUGE_POLL_HISTORY  # 180 seconds ago
 
 ################################################################################
 ## INFLUXDB 
@@ -30,6 +32,7 @@ INFLUX_PORT = 8086
 INFLUX_DB = 'customer23'
 INFLUX_USER = 'gather'
 INFLUX_PASS = 'slurp'
+
 
 ################################################################################
 ## MAIN 
@@ -54,7 +57,7 @@ if __name__ == "__main__":
     logger.info("EGAUGE endpoint --> %s", EGAUGE_HOST)
 
     logger.info("--------------------------------------------------")
-    logger.info("Process ID: %s [%s]", pid, "Debug" if logging.getLogger().getEffectiveLevel() < 20 else "Production");
+    logger.info("Process ID: %s [%s]", pid, "Debug" if logging.getLogger().getEffectiveLevel() < 20 else "Production")
     logger.info("--------------------------------------------------")
 
     logger.info("Initializing... %s", now)
@@ -64,12 +67,9 @@ if __name__ == "__main__":
 
     logger.info("Running...")
     while True:
-        now = int(time.time())
-
-        # get historical data every n minutes or so
-        if now - then >= TIME_AGO:
-            intervalEgaugeData = myEgauge.get_history_minutes(then, now)
-            then = now
+        if now - then >= EGAUGE_POLL_HISTORY:
+            # get historical data every 3 minutes or so
+            intervalEgaugeData = myEgauge.get_history_minutes(then)
             meter_id = None
             for meter in intervalEgaugeData['metercatalog']:
                 if meter['meterName'] == 'Main':
@@ -81,11 +81,12 @@ if __name__ == "__main__":
                         influx_line = "energy,equipment_id={} energy_load={} {}".format(
                             EGAUGE_ID,
                             float(reading['value']),
-                            reading['timestamp'] * 1000000000)
+                            reading['timestamp'] * 1000000000)  # in nanoseconds!
                         logger.debug(influx_line)
                         dbClient.write(influx_line, {'db': INFLUX_DB}, protocol='line')
+            then = now
 
-        # get instant data
+        # get instant data every poll interval
         instantEGaugeData = myEgauge.get_instant_data()
         if instantEGaugeData == None:
             continue
@@ -109,7 +110,7 @@ if __name__ == "__main__":
 
         result = dbClient.write([influx_line], {'db': INFLUX_DB}, protocol='line')
 
-        # Sleep a total 5 seconds between iterations
-        time.sleep(6)
-
+        # Sleep arbitrary 6 seconds between poll iterations
+        time.sleep(EGAUGE_POLL_INSTANT)
+        now = int(time.time())
     # end while "True"
