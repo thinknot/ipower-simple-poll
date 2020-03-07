@@ -67,48 +67,61 @@ if __name__ == "__main__":
 
     logger.info("Running...")
     while True:
+
         if now - then >= EGAUGE_POLL_HISTORY:
-            # get historical data every 3 minutes or so
-            intervalEgaugeData = myEgauge.get_history_minutes(then)
-            meter_id = None
-            for meter in intervalEgaugeData['metercatalog']:
-                if meter['meterName'] == 'Main':
-                    meter_id = meter['meterId']
-                    break
-            if meter_id is not None:
-                for reading in intervalEgaugeData['readings']:
-                    if reading['meterId'] == meter_id:
-                        influx_line = "energy,equipment_id={} energy_load={} {}".format(
-                            EGAUGE_ID,
-                            float(reading['value']),
-                            reading['timestamp'] * 1000000000)  # in nanoseconds!
-                        logger.debug(influx_line)
-                        dbClient.write(influx_line, {'db': INFLUX_DB}, protocol='line')
-            then = now
+            try:
+                # get historical data every 3 minutes or so
+                intervalEgaugeData = myEgauge.get_history_minutes(then)
+                if intervalEgaugeData is None:
+                    continue
 
-        # get instant data every poll interval
-        instantEGaugeData = myEgauge.get_instant_data()
-        if instantEGaugeData == None:
-            continue
+                meter_id = None
+                for meter in intervalEgaugeData['metercatalog']:
+                    if meter['meterName'] == 'Main':
+                        meter_id = meter['meterId']
+                        break
+                if meter_id is not None:
+                    for reading in intervalEgaugeData['readings']:
+                        if reading['meterId'] == meter_id:
+                            influx_line = "energy,equipment_id={} energy_load={} {}".format(
+                                EGAUGE_ID,
+                                float(reading['value']),
+                                reading['timestamp'] * 1000000000)  # in nanoseconds!
+                            logger.debug(influx_line)
+                            dbClient.write(influx_line, {'db': INFLUX_DB}, protocol='line')
+                then = now
+            except Exception as ex:
+                logger.exception("Unexpected error getting egauge history.")
+                continue
 
-#        gridPower = instantEGaugeData['GridPowerConsumptionInWatts']  # current grid power consumption in Watts
-        loadPower = instantEGaugeData['TotalPowerConsumptionInWatts']  # Total loads current consumption in Watts
-#        solarPower = instantEGaugeData['SolarPowerGenerationInWatts']  # current generation in Watts
+        if now - then >= EGAUGE_POLL_INSTANT:
+            try:
+                # get instant data every poll interval
+                instantEGaugeData = myEgauge.get_instant_data()
+                if instantEGaugeData is None:
+                    continue
 
-        # logger.debug(instantEGaugeData)
-        # logger.info("It's Data!   loadPower: %s   gridPower: %s   solarPower: %s", loadPower, gridPower, solarPower)
+                # gridPower = instantEGaugeData['GridPowerConsumptionInWatts']  # grid power usage in Watts
+                loadPower = instantEGaugeData['TotalPowerConsumptionInWatts']  # total building power in Watts
+                # solarPower = instantEGaugeData['SolarPowerGenerationInWatts']  # solar power generation in Watts
 
-        loadEnergy = instantEGaugeData['TotalEnergyConsumptionInWattSeconds'] # total Watt-seconds counter
+                # logger.debug(instantEGaugeData)
+                # logger.info("It's Data!   loadPower: %s   gridPower: %s   solarPower: %s", loadPower, gridPower, solarPower)
 
-        # Use Influx line protocol for now, it has the format:
-        #    measurement,tag_set field_set timestamp
-        # https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
+                loadEnergy = instantEGaugeData['TotalEnergyConsumptionInWattSeconds'] # total Watt-seconds counter
 
-        influx_line = "power,equipment_id={} power_load={}".format(
-            EGAUGE_ID,
-            loadPower)
+                # Use Influx line protocol for now, it has the format:
+                #    measurement,tag_set field_set timestamp
+                # https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
 
-        result = dbClient.write([influx_line], {'db': INFLUX_DB}, protocol='line')
+                influx_line = "power,equipment_id={} power_load={}".format(
+                    EGAUGE_ID,
+                    loadPower)
+
+                result = dbClient.write([influx_line], {'db': INFLUX_DB}, protocol='line')
+            except Exception as ex:
+                logger.exception("Unexpected error polling egauge instantaneous values.")
+                continue
 
         # Sleep arbitrary 6 seconds between poll iterations
         time.sleep(EGAUGE_POLL_INSTANT)
