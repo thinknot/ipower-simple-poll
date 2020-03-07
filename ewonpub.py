@@ -4,6 +4,7 @@ from m2web import M2web
 import time
 import logging
 import os
+import requests
 
 ################################################################################
 ## M2WEB
@@ -25,19 +26,13 @@ INFLUX_PASS = 'FpMK6RamNX'
 ## MAIN
 ################################################################################
 
-# last 5 minutes (1min * 60s)
-TIME_AGO = 5 * 60
-# get Unix timestamps for now, and now-time_ago
-now = int(time.time())
-then = int(time.time()) - TIME_AGO
-
 if __name__ == "__main__":
 #    signal.signal(signal.SIGTERM, signal_handler)
     pid = os.getpid()
 
     logging.basicConfig(format="[%(asctime)-15s] %(message)s", level=logging.DEBUG)
     logger = logging.getLogger(__name__)
-    logger.info("Initializing... %s", now)
+    logger.info("Initializing...")
 
     dbClient = InfluxDBClient(INFLUX_HOST, INFLUX_PORT, INFLUX_USER, INFLUX_PASS)
 
@@ -45,8 +40,6 @@ if __name__ == "__main__":
     logger.info("Environment")
     logger.info("--------------------------------------------------")
 
-#    logger.info("Log config --> %s", LOG_CONFIG)
-#    logger.info("MQTT endpoint --> %s:%s", MQTT_HOST_NAME, MQTT_HOST_PORT)
     logger.info("INFLUX endpoint --> %s:%s", INFLUX_HOST, INFLUX_PORT)
 
     logger.info("--------------------------------------------------")
@@ -57,22 +50,18 @@ if __name__ == "__main__":
     logger.info("Running...")
 
     while True:
-        now = int(time.time())
-        if now - then >= TIME_AGO:
-            then = now
-
-        # get instant data
-        instantEwonData = myEwon.get_instant_data()
-        if instantEwonData == None:
-            continue
+        try:
+            # get instant data
+            instantEwonData = myEwon.get_instant_data()
+            if instantEwonData == None:
+                continue
+        except Exception as ex:
+            logger.exception("Error communication with Talk2M API")
 
         solarPower = instantEwonData['SolarPowerInWatts']
-#        logger.info("It's Data!     solarPower: %s", solarPower)
+#        logger.debug("It's Data!     solarPower: %s", solarPower)
 
         influx_line_power = "power,equipment_id=ewon793680 power_solar={}".format(solarPower)
-
-        result = dbClient.write([influx_line_power], {'db': INFLUX_DB}, protocol='line')
-       
 
         inv1 = instantEwonData['Inverter1PowerInWatts']
         inv2 = instantEwonData['Inverter2PowerInWatts']
@@ -89,9 +78,6 @@ if __name__ == "__main__":
             inv5,
             inv6)
 
-        result = dbClient.write([influx_line_inverters], {'db': INFLUX_DB}, protocol='line')
-
-
         temp = instantEwonData['AmbientTempInDegreesF']
         irradiance = instantEwonData['Irradiance']
         windspeed = instantEwonData['WindSpeed']
@@ -101,7 +87,16 @@ if __name__ == "__main__":
             irradiance,
             windspeed)
 
-        result = dbClient.write([influx_line_weather], {'db': INFLUX_DB}, protocol='line')
+        try:
+            weather_result = dbClient.write([influx_line_weather], {'db': INFLUX_DB}, protocol='line')
+            inverter_result = dbClient.write([influx_line_inverters], {'db': INFLUX_DB}, protocol='line')
+            power_result = dbClient.write([influx_line_power], {'db': INFLUX_DB}, protocol='line')
+        except requests.exceptions.ConnectionError as connect_ex:
+            logger.exception("ConnectionError caught when writing to influxdb")
+            continue
+        except Exception as ex:
+            logger.exception("Unexpected error caught when writing to influxdb")
+            continue
 
         # Sleep a total 5 seconds between iterations
         time.sleep(6)
