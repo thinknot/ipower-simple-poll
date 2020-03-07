@@ -62,10 +62,10 @@ class EgaugeApi(object):
         response = self.run_egauge_httpquery(gw_url + params)
 
         resultData = EgaugeData(response)
-        self.logger.debug(resultData)
+#        self.logger.debug(resultData)
 
         resultValues = resultData.convert()
-        self.logger.debug(resultValues)
+#        self.logger.debug(resultValues)
 
         return resultValues
 
@@ -145,7 +145,7 @@ class EgaugeApi(object):
         if self.password == None:
             self.password = "default"
 
-        self.logger.debug(url)
+#        self.logger.debug(url)
 
         try:
             req = httplib2.Http(timeout=15)
