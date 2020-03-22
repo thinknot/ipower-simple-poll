@@ -1,1 +1,5 @@
+.cache
+.pytest_cache
+*.pyc
+__pycache__
 *.sqlite
